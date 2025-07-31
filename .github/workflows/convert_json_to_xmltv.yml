@@ -1,0 +1,42 @@
+name: Convert JSON EPG to XMLTV
+
+on:
+  schedule:
+    - cron: '0 */4 * * *'  # Runs every 4 hours (0:00, 4:00, 8:00, 12:00, 16:00, 20:00 UTC)
+  workflow_dispatch:       # Allows manual triggering
+
+jobs:
+  convert-epg:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Set up Python environment
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Install dependencies
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests xmltv
+
+      # Run the conversion script
+      - name: Convert JSON to XMLTV
+        run: python convert_json_to_xmltv.py
+
+      # Commit and push the generated XMLTV file
+      - name: Commit and push XMLTV file
+        run: |
+          git config --global user.name 'GitHub Action'
+          git config --global user.email 'action@github.com'
+          git add epg.xml
+          git commit -m 'Update XMLTV EPG file' || echo "No changes to commit"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
