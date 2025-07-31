@@ -1,7 +1,7 @@
 import requests
 import json
 import xml.etree.ElementTree as ET
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import xml.dom.minidom
 import os
 
@@ -89,7 +89,7 @@ def main():
     xmltv_data = convert_to_xmltv(json_data)
     
     # Add generation timestamp comment
-    generation_time = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    generation_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     xml_comment = f"<!-- Generated at {generation_time} -->"
     
     # Write to XML file
