@@ -15,11 +15,11 @@ def fetch_json_epg():
     return response.json()
 
 def convert_to_xmltv(json_data):
-    """Convert JSON EPG data to XMLTV format."""
+    """Convert JSON EPG data to XMLTV format with channels at the top."""
     # Create the root element
     tv = ET.Element("tv")
 
-    # Process each channel in the JSON data
+    # First, add all channel elements
     for channel_id, channel_data in json_data.items():
         # Add channel
         channel = ET.SubElement(tv, "channel", id=channel_id)
@@ -27,7 +27,8 @@ def convert_to_xmltv(json_data):
         display_name.text = channel_id.replace("-", " ").title()
         display_name.set("lang", "en")
 
-        # Process programs for the channel
+    # Then, add all programme elements
+    for channel_id, channel_data in json_data.items():
         programs = channel_data.get("programs", [])
         for i, program in enumerate(programs):
             # Parse start time
@@ -87,6 +88,10 @@ def main():
     # Convert to XMLTV
     xmltv_data = convert_to_xmltv(json_data)
     
+    # Add generation timestamp comment
+    generation_time = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    xml_comment = f"<!-- Generated at {generation_time} -->"
+    
     # Write to XML file
     output_file = "epg.xml"
     with open(output_file, "w", encoding="utf-8") as f:
@@ -94,7 +99,7 @@ def main():
         # Remove any extra XML declarations added by minidom
         if pretty_xml.startswith("<?xml"):
             pretty_xml = pretty_xml[pretty_xml.index("?>") + 2:].lstrip()
-        f.write('<?xml version="1.0" encoding="UTF-8"?>\n' + pretty_xml)
+        f.write(f'<?xml version="1.0" encoding="UTF-8"?>\n{xml_comment}\n{pretty_xml}')
 
 if __name__ == "__main__":
     main()
