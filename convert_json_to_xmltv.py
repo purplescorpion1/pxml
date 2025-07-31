@@ -1,6 +1,6 @@
 import requests
 import json
-import xmltv
+import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 import xml.dom.minidom
 import os
@@ -16,17 +16,16 @@ def fetch_json_epg():
 
 def convert_to_xmltv(json_data):
     """Convert JSON EPG data to XMLTV format."""
-    # Initialize XMLTV structure
-    tv = xmltv.TV()
+    # Create the root element
+    tv = ET.Element("tv")
 
     # Process each channel in the JSON data
     for channel_id, channel_data in json_data.items():
-        # Add channel to XMLTV
-        channel = xmltv.Channel(
-            id=channel_id,
-            display_name=[xmltv.DisplayName(text=channel_id.replace("-", " ").title(), lang="en")]
-        )
-        tv.channels.append(channel)
+        # Add channel
+        channel = ET.SubElement(tv, "channel", id=channel_id)
+        display_name = ET.SubElement(channel, "display-name")
+        display_name.text = channel_id.replace("-", " ").title()
+        display_name.set("lang", "en")
 
         # Process programs for the channel
         programs = channel_data.get("programs", [])
@@ -43,23 +42,42 @@ def convert_to_xmltv(json_data):
                 # For the last program, set end time to start time + 1 hour
                 end_time = start_time + timedelta(hours=1)
             
-            # Create programme entry
-            prog = xmltv.Programme(
+            # Create programme element
+            prog = ET.SubElement(
+                tv,
+                "programme",
                 start=start_time.strftime("%Y%m%d%H%M%S +0000"),
                 stop=end_time.strftime("%Y%m%d%H%M%S +0000"),
-                channel=channel_id,
-                title=[xmltv.Title(text=program["title"], lang="en")],
-                desc=[xmltv.Desc(text=program.get("description", ""), lang="en")] if program.get("description") else None,
-                sub_title=[xmltv.SubTitle(text=program["subtitle"], lang="en")] if program.get("subtitle") else None,
-                icon=[xmltv.Icon(src=program["thumbnail"])] if program.get("thumbnail") else None
+                channel=channel_id
             )
-            tv.programmes.append(prog)
+            
+            # Add title
+            title = ET.SubElement(prog, "title")
+            title.text = program["title"]
+            title.set("lang", "en")
+            
+            # Add description if available
+            if program.get("description"):
+                desc = ET.SubElement(prog, "desc")
+                desc.text = program["description"]
+                desc.set("lang", "en")
+            
+            # Add subtitle if available
+            if program.get("subtitle"):
+                sub_title = ET.SubElement(prog, "sub-title")
+                sub_title.text = program["subtitle"]
+                sub_title.set("lang", "en")
+            
+            # Add icon if available
+            if program.get("thumbnail"):
+                icon = ET.SubElement(prog, "icon", src=program["thumbnail"])
 
     return tv
 
-def prettify_xml(xml_string):
-    """Prettify XML string for readability."""
-    parsed = xml.dom.minidom.parseString(xml_string)
+def prettify_xml(xml_element):
+    """Prettify XML element for readability."""
+    rough_string = ET.tostring(xml_element, encoding="unicode")
+    parsed = xml.dom.minidom.parseString(rough_string)
     return parsed.toprettyxml(indent="  ")
 
 def main():
@@ -72,9 +90,11 @@ def main():
     # Write to XML file
     output_file = "epg.xml"
     with open(output_file, "w", encoding="utf-8") as f:
-        xml_string = xmltv.write(xmltv_data)
-        pretty_xml = prettify_xml(xml_string)
-        f.write(pretty_xml)
+        pretty_xml = prettify_xml(xmltv_data)
+        # Remove any extra XML declarations added by minidom
+        if pretty_xml.startswith("<?xml"):
+            pretty_xml = pretty_xml[pretty_xml.index("?>") + 2:].lstrip()
+        f.write('<?xml version="1.0" encoding="UTF-8"?>\n' + pretty_xml)
 
 if __name__ == "__main__":
     main()
